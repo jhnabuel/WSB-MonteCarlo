@@ -75,7 +75,7 @@ def plot_final_price_histogram(simulated, bins=50):
     plt.grid(True)
     plt.show()
 
-def monte_carlo_simulation(stock):
+def monte_carlo_simulation(stock, avg_sentiment=None, sentiment_scaling_factor=0.05):
     print("Starting simulation:")
     folder_path =  "/Users/johnabuel/Desktop/stock data"
     file_path = os.path.join(folder_path, f"{stock}.csv")
@@ -97,25 +97,32 @@ def monte_carlo_simulation(stock):
 
 
     # Calculate the drift and volatility
-    u = log_returns.mean()
+    u = log_returns.mean() # Mu (μ), Expected return
     var = log_returns.var()
-    drift = u - (0.5 * var)
-    stdev = log_returns.std()
+    drift = u - (0.5 * var)  # Drift component (μ - ½σ²), Daily volatility
+    stdev = log_returns.std()  # Sigma (σ), Adjusted for log-normal behavior
 
     # Generate random daily returns using Geometric Brownian Movement
-    days = 200
-    simulations = 1
+    days = 7
+    simulations = 10000
 
     # Monte Carlo Simulations
     Z = norm.ppf(np.random.rand(days, simulations))
-    daily_returns = np.exp(drift + stdev * Z)
+
+    if avg_sentiment is not None:
+        adjusted_drift = drift + (avg_sentiment * sentiment_scaling_factor)
+        daily_returns = np.exp(adjusted_drift + stdev * Z)
+    else: 
+        daily_returns = np.exp(drift + stdev * Z)
+
+
+    # Future prices
     simulated_prices = np.zeros((days + 1, simulations))
     simulated_prices[0] = prices.iloc[-1]
 
     for t in range(1, days + 1):
         simulated_prices[t] = simulated_prices[t-1] * daily_returns[t-1]
 
-    # Future prices
     last_date = dates.iloc[-1]
     future_dates = pd.date_range(start=last_date, periods=days + 1)
 
@@ -123,9 +130,9 @@ def monte_carlo_simulation(stock):
     fig, ax = plt.subplots(figsize=(12,6))
     ax.plot(dates[-14:], prices[-14:], label="Recent Price", color="blue", linestyle="dashed")
 
-        # Create a colormap with as many distinct colors as simulations (or the first N)
-    N = min(100, simulations)  # Limit for clarity on the plot
-    cmap = plt.get_cmap("nipy_spectral", N)  # Choose a colorful colormap
+    # Create a colormap with as many distinct colors as simulations (or the first N)
+    N = min(100, simulations)  
+    cmap = plt.get_cmap("nipy_spectral", N) 
 
     # Plot forecast
     for i in range(N):
@@ -139,6 +146,7 @@ def monte_carlo_simulation(stock):
     plt.show()
 
     print(f"Shape of simulated_prices: {simulated_prices.shape}")
+
     # Plot final day prices histogramj
     plot_final_price_histogram(simulated_prices)
      # Optional: Return results
@@ -164,24 +172,35 @@ def sentiment_analysis():
     
     sentiment_scores = df['text'].apply(analyze)
     
-    '''
+    
     df['sentiment_score'] = sentiment_scores
+    '''
     for title, score in zip(df['Title'], df['sentiment_score']):
         print(f"Title: {title}\nSentiment Score: {score:.3f}\n{'-'*60}")
     '''
-    df['sentiment_score'] = sentiment_scores
-    for title, score in zip(df['Title'], df['sentiment_score']):
-        if score == 0.0:
-            print(f"[Neutral] Text: {title}")
 
-   
+    # Distribution breakdown
+    total = len(df['sentiment_score'])
+    positive = sum(1 for s in df['sentiment_score']if s > 0.05)
+    neutral = sum(1 for s in df['sentiment_score'] if -0.05 <= s <= 0.05)
+    negative = sum(1 for s in df['sentiment_score'] if s < -0.05)
 
+    # Report
+   # print(f"Total Posts Analyzed: {total}")
+    #print(f"Positive Posts: {positive} ({positive/total:.2%})")
+    #print(f"Neutral Posts: {neutral} ({neutral/total:.2%})")
+    #print(f"Negative Posts: {negative} ({negative/total:.2%})")
+
+    # Get average sentiment score
+    average_score = df['sentiment_score'].mean()
+    print(f"Average Sentiment Score: {average_score}")
+    return average_score
 
 
 # def monte_carlo_with_sentiment():
 
 
 if __name__ == "__main__":
-    # sentiment_analysis()
+    stock_sentiment_score = sentiment_analysis()
+    monte_carlo_simulation("NVDA", stock_sentiment_score)
    # get_stock_price()
-    monte_carlo_simulation("NVDA")
