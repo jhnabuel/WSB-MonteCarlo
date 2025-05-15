@@ -10,6 +10,8 @@ matplotlib = "*"
 seaborn = "*"
 scipy = "*"
 pandas = "*"
+psaw = "*"
+tqdm = "*"
 
 [dev-packages]
 
