@@ -4,8 +4,6 @@ from datetime import timedelta
 import seaborn as sns
 import yfinance as yf
 import pandas as pd
-import statistics
-import math
 import os
 from scipy.stats import norm
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -55,9 +53,16 @@ def read_stock_price(stock):
     plt.show()
 
 
-
-def simulate_single_path(last_price, total_days, base_drift, stdev, future_dates, 
-                         weekly_sentiment=None, sentiment_scaling_factor=0.005, sentiment_decay=0.4):
+def simulate_single_path(
+    last_price,
+    total_days,
+    base_drift,
+    stdev,
+    future_dates,
+    weekly_sentiment=None,
+    sentiment_scaling_factor=0.005,
+    sentiment_decay=0.4
+):
     prices = np.zeros(total_days + 1)
     prices[0] = last_price
 
@@ -65,10 +70,14 @@ def simulate_single_path(last_price, total_days, base_drift, stdev, future_dates
     current_week = None
     MAX_DAILY_IMPACT = 0.003  # Max 0.3% daily price impact from sentiment
 
- 
-
     for day_idx in range(1, total_days + 1):
         current_date = future_dates[day_idx - 1]
+
+        # Skip weekends: price stays flat
+        if current_date.weekday() >= 5:  # Saturday = 5, Sunday = 6
+            prices[day_idx] = prices[day_idx - 1]
+            continue
+
         week_key = current_date.strftime('%Y-%W')
 
         if week_key != current_week:
@@ -76,24 +85,25 @@ def simulate_single_path(last_price, total_days, base_drift, stdev, future_dates
             new_sentiment = weekly_sentiment.get(week_key, 0) if weekly_sentiment else 0
             current_sentiment = new_sentiment * sentiment_scaling_factor
 
+        # Business-day-aware sentiment decay
+        weekday = current_date.weekday()  # 0 = Monday ... 4 = Friday
+        effective_sentiment = current_sentiment * (1 - sentiment_decay * (weekday / 4))
 
-          # Calculate effective sentiment with decay
-        days_in_week = (day_idx - 1) % 5 + 1  # 1-5 trading days
-        effective_sentiment = current_sentiment * (1 - sentiment_decay * ((days_in_week - 1)/4))
-        
-        # Asymmetric impact and capping
+        # Asymmetric impact + clipping
         if effective_sentiment > 0:
-            effective_sentiment = min(effective_sentiment * 0.7, MAX_DAILY_IMPACT)  # Reduce positive impact
+            effective_sentiment = min(effective_sentiment * 0.7, MAX_DAILY_IMPACT)
         else:
-            effective_sentiment = max(effective_sentiment * 1.3, -MAX_DAILY_IMPACT)  # Amplify negative impact
-        
-        Z = norm.ppf(np.random.rand())  # single random shock
+            effective_sentiment = max(effective_sentiment * 1.3, -MAX_DAILY_IMPACT)
+
+        Z = norm.ppf(np.random.rand())  # random shock
         daily_return = np.exp(base_drift + effective_sentiment + stdev * Z)
         prices[day_idx] = prices[day_idx - 1] * daily_return
 
-        # Daily decay
-        current_sentiment *= (1 - sentiment_decay/5)
+        # Daily sentiment decay
+        current_sentiment *= (1 - sentiment_decay / 5)
+
     return prices
+
 
 
 
@@ -125,7 +135,7 @@ def monte_carlo_simulation_weekly_sentiment(stock, simulations, use_sentiment=Tr
 
         # Limit historical data to 3 years ending April 30, 2025
     df = df[df["Date"] <= pd.to_datetime("2025-04-30")]
-    df = df[df["Date"] >= pd.to_datetime("2022-05-01")]
+    df = df[df["Date"] >= pd.to_datetime("2022-01-01")]
 
 
     # Compute log returns
@@ -356,7 +366,7 @@ def normalize_sentiment(weekly_sentiment):
 
 
 if __name__ == "__main__":
-    stocks = ["NVDA"]
+    stocks = ["MSTR"]
     results = {}
 
     for stock in stocks:

@@ -4,8 +4,6 @@ from datetime import timedelta
 import seaborn as sns
 import yfinance as yf
 import pandas as pd
-import statistics
-import math
 import os
 from scipy.stats import norm
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -97,6 +95,13 @@ def simulate_single_path(last_price, total_days, base_drift, stdev, future_dates
 
     for day_idx in range(1, total_days + 1):
         current_date = future_dates[day_idx - 1]
+
+         
+        # Skip weekends (Saturday=5, Sunday=6)
+        if current_date.weekday() >= 5:  # If it's a weekend
+            prices[day_idx] = prices[day_idx - 1]  # Price stays the same as previous day
+            continue  # Skip to next iteration
+
         week_key = current_date.strftime('%Y-%W')
 
         if week_key != current_week:
@@ -105,9 +110,12 @@ def simulate_single_path(last_price, total_days, base_drift, stdev, future_dates
             current_sentiment = new_sentiment * sentiment_scaling_factor
 
 
-          # Calculate effective sentiment with decay
-        days_in_week = (day_idx - 1) % 5 + 1  # 1-5 trading days
-        effective_sentiment = current_sentiment * (1 - sentiment_decay * ( (days_in_week-1) /4))
+         
+        # Calculate effective sentiment with decay
+        # Using business days in week (Monday=0 to Friday=4)
+        weekday = current_date.weekday()  # 0-4 for business days
+        effective_sentiment = current_sentiment * (1 - sentiment_decay * (weekday/4))
+
 
         # Asymmetric impact and capping
         if effective_sentiment > 0:
@@ -225,7 +233,7 @@ def monte_carlo_simulation_weekly_sentiment(stock, simulations, sentiment_scalin
     print(f"Shape of simulated_prices: {simulated_prices.shape}")
 
     # Plot final day prices histogram
-    # plot_final_price_histogram(simulated_prices)
+    plot_final_price_histogram(simulated_prices)
 
     end_time = time.time()  # End timing
     elapsed = end_time - start_time
@@ -354,7 +362,7 @@ def normalize_sentiment(weekly_sentiment):
 
 
 if __name__ == "__main__":
-    stocks = ["NVDA", "MSTR"]
+    stocks = ["MSTR"]
     results = {}
 
     for stock in stocks:
