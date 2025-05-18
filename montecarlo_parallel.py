@@ -83,7 +83,7 @@ def plot_final_price_histogram(simulated, actual_price=None, bins=100):
 
 
 def simulate_single_path(last_price, total_days, base_drift, stdev, future_dates, 
-                         weekly_sentiment=None, sentiment_scaling_factor=0.005, sentiment_decay=0.4):
+                         weekly_sentiment=None, sentiment_scaling_factor=0.001, sentiment_decay=0.4):
     prices = np.zeros(total_days + 1)
     prices[0] = last_price
 
@@ -353,6 +353,7 @@ def sentiment_analysis_weekly(posts_csv):
     return weekly_sentiment
 
 def normalize_sentiment(weekly_sentiment):
+    # This prevents drift inflation
     values = np.array(list(weekly_sentiment.values()))
     mean = np.mean(values)
     std = np.std(values)

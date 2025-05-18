@@ -53,16 +53,8 @@ def read_stock_price(stock):
     plt.show()
 
 
-def simulate_single_path(
-    last_price,
-    total_days,
-    base_drift,
-    stdev,
-    future_dates,
-    weekly_sentiment=None,
-    sentiment_scaling_factor=0.005,
-    sentiment_decay=0.4
-):
+def simulate_single_path(last_price, total_days, base_drift, stdev, future_dates, weekly_sentiment=None, 
+                         sentiment_scaling_factor=0.005,sentiment_decay=0.4):
     prices = np.zeros(total_days + 1)
     prices[0] = last_price
 
